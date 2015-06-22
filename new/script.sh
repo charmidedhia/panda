@@ -1,0 +1,11 @@
+{ time ./panda ../iscas85/c17.bench ../eva500a__ > c17.bench.out; } 2> c17.bench.time
+{ time ./panda ../iscas85/c1355.bench ../eva500a__ > c1355.bench.out; } 2> c1355.bench.time
+{ time ./panda ../iscas85/c1908.bench ../eva500a__ > c1908.bench.out; } 2> c1908.bench.time
+{ time ./panda ../iscas85/c3540.bench ../eva500a__ > c3540.bench.out; } 2> c3540.bench.time
+{ time ./panda ../iscas85/c499.bench ../eva500a__ > c499.bench.out; } 2> c499.bench.time
+{ time ./panda ../iscas85/c2670.bench ../eva500a__ > c2670.bench.out; } 2> c2670.bench.time
+{ time ./panda ../iscas85/c432.bench ../eva500a__ > c432.bench.out; } 2> c432.bench.time
+{ time ./panda ../iscas85/c5315.bench ../eva500a__ > c5315.bench.out; } 2> c5315.bench.time
+{ time ./panda ../iscas85/c6288.bench ../eva500a__ > c6288.bench.out; } 2> c6288.bench.time
+{ time ./panda ../iscas85/c7552.bench ../eva500a__ > c7552.bench.out; } 2> c7552.bench.time
+{ time ./panda ../iscas85/c880.bench ../eva500a__ > c880.bench.out; } 2> c880.bench.time
