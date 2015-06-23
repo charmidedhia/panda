@@ -32,7 +32,7 @@ void timer_handler (int signum)
     exit(0);
 }
 
-const int k=50;
+const int k=200;
 const int j=10;
 
 //charmi
@@ -940,103 +940,104 @@ void ATPG::getGreedyTestSet(vector<vector<int> > &patterns, char *solver_name) {
     // g_cnfformula->outputToFileMaxsat("whatever", g_soft_clid, externLineToCnfVar, "test_maxsat.cnf");
     
     while (curfaults.size() > 0) {
+    	std::ofstream ofs;
+        ofs.open("cores.txt", std::ofstream::out | std::ofstream::trunc);
+        ofs.close();
         subset.clear();
-        cout << "iteration " << iternum++ << ", remaning faults=" << curfaults.size()
-        << ", test patterns=" << patterns.size() << endl;
-        list<Fault>::iterator it=curfaults.begin();
-        // if (curfaults.size()>j){//charmi
-            
-            //     for(int i=0;i<j;i++){
-                //         subset.push_back(*it);
-                //         it++;
-            //     }
-        // }
-        // else subset=curfaults;
+        cout << "iteration " << iternum++ << ", remaning faults=" << curfaults.size()<< ", test patterns=" << patterns.size() << endl;
         vector<int> patternvars;
         CNF *cnf = new CNF(0);
         set<int> softclauses;
-        map<int,int> line_to_boolvar;
+		///////////////////////////////////////////////from build maxsat
         int numInputs = g_circuit->getNumInputLines();
-        
-        // Initialize the boolean vars for the input lines to be the outputs of the multiplexer
-        
-        for (int i = 0; i < numInputs; i++) {
-             patternvars.push_back(cnf->newVar());
-            line_to_boolvar[g_circuit->getInputLine(i)] = patternvars[i];
-        }
-        // int faultno=0;
-        // buildMaxSatCnf(subset, cnf, softclauses, patternvars);
-        
+		  // int numPatterns = 1; // one pattern initially 
+		  // int numSelectors = numPatterns; // simple multiplexer for now
+		  // vector<vector<int> > testpatternvars;
+		  // vector<vector<int> > selectorvars;
+		  // vector<vector<int> > multioutputvars;
+		      
+		  for (int i = 0; i < numInputs; i++) { 
+		    patternvars.push_back(cnf->newVar());     
+		  }    
+		  // testpatternvars.push_back(patternvars); 
+		    
+		  map<int, int> line_to_boolvar;
+
+		  // Initialize the boolean vars for the input lines to be the outputs of the multiplexer
+		    
+		  for (int i = 0; i < numInputs; i++) {
+		      line_to_boolvar[g_circuit->getInputLine(i)] = patternvars[i];
+		  }
+        //////////////////////////////////////////////////////////////
+        list<Fault>::iterator it=curfaults.begin();
+        int count=0;
         vector<int> model;
-        // MaxSATSolver *maxsatsolver = new MaxSATSolver(cnf, solver_name);
-        
-        
-        
-        int count = 0;
-        cout<<"count "<<count<<endl;
-        while(count<k && count<curfaults.size()){
-            cout<<"count "<<count<<endl;
-            subset.clear();
-            for(int i=0;i<j && count<curfaults.size();i++){
-                // subset.push_back(*it);
-                addFaultToCnf(*it , cnf, line_to_boolvar , softclauses , count==0);
-                count++;
-                it++;
-            }
-            MaxSATSolver *maxsatsolver=new MaxSATSolver(cnf,solver_name);
-            time(&t1);
-            //charmi2
-            struct sigaction sa;
-            struct itimerval timer;
-            
-            /* Install timer_handler as the signal handler for SIGVTALRM. */
-            memset (&sa, 0, sizeof (sa));
-            sa.sa_handler = &timer_handler;
-            sigaction (SIGVTALRM, &sa, NULL);
-            
-            /* Configure the timer to expire after 250 msec... */
-            timer.it_value.tv_sec = 11000;
-            timer.it_value.tv_usec = 250000;
-            /* ... and every 250 msec after that. */
-            timer.it_interval.tv_sec = 0;
-            timer.it_interval.tv_usec = 0;
-            /* Start a virtual timer. It counts down whenever this process is  executing. */
-            setitimer (ITIMER_VIRTUAL, &timer, NULL);
-            //charmi2
-           maxsatsolver->solve(model, softclauses,"cores.txt");
-            time(&t2);
-            timer.it_value.tv_sec=0;
-            timer.it_value.tv_usec=0;
-            setitimer(ITIMER_VIRTUAL,&timer,NULL);
-            cout << "Solving time=" << difftime(t2,t1) << "s" << endl;
-            
+        while(count<k && it!=curfaults.end()){
+        	model.clear();
+        	cout<<"in loop 1\n";
+        	int i=0;
+        	while(i<j && it!=curfaults.end()){
+        		addFaultToCnf(*it, cnf, line_to_boolvar,softclauses,count==0);
+        		it++;
+        		count++;
+        		i++;
+        		cout<<"in loop 2\n";
+        	}
+
+		      MaxSATSolver *maxsatsolver = new MaxSATSolver(cnf, solver_name);      
+
+		      time(&t1);
+			//charmi2
+			 struct sigaction sa;
+			 struct itimerval timer;
+
+			 /* Install timer_handler as the signal handler for SIGVTALRM. */
+			 memset (&sa, 0, sizeof (sa));
+			 sa.sa_handler = &timer_handler;
+			 sigaction (SIGVTALRM, &sa, NULL);
+
+			 /* Configure the timer to expire after 250 msec... */
+			 timer.it_value.tv_sec = 11000;
+			 timer.it_value.tv_usec = 250000;
+			 /* ... and every 250 msec after that. */
+			 timer.it_interval.tv_sec = 0;
+			 timer.it_interval.tv_usec = 0;	
+			 /* Start a virtual timer. It counts down whenever this process is  executing. */
+			 setitimer (ITIMER_VIRTUAL, &timer, NULL);
+			//charmi2
+		      maxsatsolver->solve(model, softclauses,"cores.txt");
+		      time(&t2);
+		      timer.it_value.tv_sec=0;
+		      timer.it_value.tv_usec=0;
+		      setitimer(ITIMER_VIRTUAL,&timer,NULL);
+		      cout << "Solving time=" << difftime(t2,t1) << "s" << endl;
         }
-        std::ofstream ofs;
-        ofs.open("cores.txt", std::ofstream::out | std::ofstream::trunc);
-        ofs.close();
+
+
         vector<vector<int> > testpatternvars;
-        testpatternvars.push_back(patternvars);
-        modelToPatterns(testpatternvars, model, patterns);
-        
-        vector<flt_it> tested_faults;
-        
-        // find and remove tested faults
-        count=0;
-        for (flt_it it=curfaults.begin(); it!=curfaults.end(); it++){
-            
-            if (isFaultTested(*it, patterns)){
-                count++;
-                tested_faults.push_back(it);
-            }
-        }
-        cout<<"Faults tested in this iteration: "<<count<<endl;
-        
-        cout << "Tested faults: ";
-        for (vector<flt_it>::iterator it=tested_faults.begin(); it!=tested_faults.end(); it++){
-            curfaults.erase(*it);
-            cout << (*it)->line << ", ";
-        }
-        cout << endl;
-        
+      testpatternvars.push_back(patternvars);
+      modelToPatterns(testpatternvars, model, patterns);
+
+      vector<flt_it> tested_faults;
+
+      // find and remove tested faults
+	int cnt=0;
+    for (flt_it it=curfaults.begin(); it!=curfaults.end(); it++){
+	
+    	if (isFaultTested(*it, patterns)){
+    	  cnt++;
+    	  tested_faults.push_back(it);
+    	}
+    }
+	cout<<"Faults tested in this iteration: "<<cnt<<endl;
+	
+    cout << "Tested faults: ";
+    for (vector<flt_it>::iterator it=tested_faults.begin(); it!=tested_faults.end(); it++){
+	curfaults.erase(*it);
+	cout << (*it)->line << ", ";
+      }
+      cout << endl;
+    
+      
     }
 }
