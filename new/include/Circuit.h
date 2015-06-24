@@ -7,6 +7,7 @@
 
 #include <vector>
 #include <map>
+#include <queue>
 #include <string>
 #include <set>
 #include <iostream>
@@ -114,6 +115,7 @@ public:
 	}
 
 	void getFaultList(vector<string> &faults);
+    void getRTOPFaultList(vector<string> &faults);
 
 	int getNumLines() { return num_lines; }
         int getNumGates() { return num_gates; }

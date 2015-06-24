@@ -24,6 +24,7 @@
 #include <sys/time.h>
 #include <iostream>
 #include <fstream>
+#include <queue>
 
 using namespace std;
 void timer_handler (int signum)
@@ -34,6 +35,7 @@ void timer_handler (int signum)
 
 const int k=200;
 const int j=10;
+const int maxhs_time_limit=1000;
 
 //charmi
 
@@ -46,7 +48,7 @@ ATPG::ATPG(char *benchname, bool incr, bool symm) {
     
     g_circuit = new Circuit(benchname);
     
-    g_circuit->getFaultList(g_faultlines);
+    g_circuit->getRTOPFaultList(g_faultlines);
     
     g_cnfformula = new CNF(0);
     g_satsolver = new SATSolver(g_cnfformula);
@@ -907,7 +909,10 @@ bool ATPG::checkTestSet(vector<vector<int> > patterns){
 }
 
 
-void ATPG::getGreedyTestSet(vector<vector<int> > &patterns, char *solver_name) {
+void ATPG::getGreedyTestSet_itr(vector<vector<int> > &patterns, char *solver_name) {
+
+double total_maxsat_time=0;
+cout<<"subset size: "<<k<<" step size: "<<j<<endl;
     int iternum = 1;
     
     time_t t1,t2;
@@ -974,43 +979,25 @@ void ATPG::getGreedyTestSet(vector<vector<int> > &patterns, char *solver_name) {
         vector<int> model;
         while(count<k && it!=curfaults.end()){
         	model.clear();
-        	cout<<"in loop 1\n";
+        	//cout<<"in loop 1\n";
         	int i=0;
         	while(i<j && it!=curfaults.end()){
         		addFaultToCnf(*it, cnf, line_to_boolvar,softclauses,count==0);
         		it++;
         		count++;
         		i++;
-        		cout<<"in loop 2\n";
+        		//cout<<"in loop 2\n";
         	}
 
 		      MaxSATSolver *maxsatsolver = new MaxSATSolver(cnf, solver_name);      
 
 		      time(&t1);
-			//charmi2
-			 struct sigaction sa;
-			 struct itimerval timer;
-
-			 /* Install timer_handler as the signal handler for SIGVTALRM. */
-			 memset (&sa, 0, sizeof (sa));
-			 sa.sa_handler = &timer_handler;
-			 sigaction (SIGVTALRM, &sa, NULL);
-
-			 /* Configure the timer to expire after 250 msec... */
-			 timer.it_value.tv_sec = 11000;
-			 timer.it_value.tv_usec = 250000;
-			 /* ... and every 250 msec after that. */
-			 timer.it_interval.tv_sec = 0;
-			 timer.it_interval.tv_usec = 0;	
-			 /* Start a virtual timer. It counts down whenever this process is  executing. */
-			 setitimer (ITIMER_VIRTUAL, &timer, NULL);
-			//charmi2
+			
 		      maxsatsolver->solve(model, softclauses,"cores.txt");
 		      time(&t2);
-		      timer.it_value.tv_sec=0;
-		      timer.it_value.tv_usec=0;
-		      setitimer(ITIMER_VIRTUAL,&timer,NULL);
+		   
 		      cout << "Solving time=" << difftime(t2,t1) << "s" << endl;
+		      total_maxsat_time+=difftime(t2,t1);
         }
 
 
@@ -1040,4 +1027,97 @@ void ATPG::getGreedyTestSet(vector<vector<int> > &patterns, char *solver_name) {
     
       
     }
+    cout<<"total_maxsat_time = "<<total_maxsat_time<<endl;
 }
+
+
+
+
+void ATPG::getGreedyTestSet(vector<vector<int> > &patterns, char *solver_name) {
+    int iternum = 1;
+
+    time_t t1,t2;
+    vector<Fault> allfaults;
+    list<Fault> curfaults;
+	list<Fault> subset; //charmi
+    for (int i = 0; i < g_faultlines.size(); i++) {
+      Fault f0(g_faultlines[i], 0);
+      if (isFaultTestable(f0)) {
+          allfaults.push_back(f0);
+      }
+      Fault f1(g_faultlines[i], 1);
+      if (isFaultTestable(f1)) {
+          allfaults.push_back(f1);
+      }
+    }
+   
+    cout << "Number of testable faults: " << allfaults.size() << endl; 
+    fflush(stdout);
+
+    for (int i= 0 ; i < allfaults.size(); i++) {
+      curfaults.push_back(allfaults[i]);
+    }
+
+    // map<string, int> externLineToCnfVar;
+    // for (int i = 0; i < g_circuit->getNumInputLines(); i++) {
+    //     int lineID = g_circuit->getInputLine(i);
+    //     externLineToCnfVar[g_circuit->getLine(lineID).extern_name] = g_testpatternvars[0][i]; 
+    // } 
+    // g_cnfformula->outputToFileMaxsat("whatever", g_soft_clid, externLineToCnfVar, "test_maxsat.cnf");
+
+    while (curfaults.size() > 0) {
+	subset.clear();
+      cout << "iteration " << iternum++ << ", remaning faults=" << curfaults.size() 
+	   << ", test patterns=" << patterns.size() << endl;
+	if (curfaults.size()>k){//charmi
+		list<Fault>::iterator it=curfaults.begin();
+		for(int i=0;i<k;i++){
+			subset.push_back(*it);
+			it++;
+		}
+	}
+	else subset=curfaults;		
+      vector<int> patternvars;
+      CNF *cnf = new CNF(0);
+      set<int> softclauses;
+      buildMaxSatCnf(subset, cnf, softclauses, patternvars);
+
+      vector<int> model;
+      MaxSATSolver *maxsatsolver = new MaxSATSolver(cnf, solver_name);      
+
+      time(&t1);
+//charmi2
+	 
+//charmi2
+      maxsatsolver->solve(model, softclauses,maxhs_time_limit);
+      time(&t2);
+      
+      cout << "Solving time=" << difftime(t2,t1) << "s" << endl;
+
+      vector<vector<int> > testpatternvars;
+      testpatternvars.push_back(patternvars);
+      modelToPatterns(testpatternvars, model, patterns);
+
+      vector<flt_it> tested_faults;
+
+      // find and remove tested faults
+	int count=0;
+    for (flt_it it=curfaults.begin(); it!=curfaults.end(); it++){
+	
+    	if (isFaultTested(*it, patterns)){
+    	  count++;
+    	  tested_faults.push_back(it);
+    	}
+    }
+	cout<<"Faults tested in this iteration: "<<count<<endl;
+	
+    cout << "Tested faults: ";
+    for (vector<flt_it>::iterator it=tested_faults.begin(); it!=tested_faults.end(); it++){
+	curfaults.erase(*it);
+	cout << (*it)->line << ", ";
+      }
+      cout << endl;
+      
+    }
+}
+

@@ -84,6 +84,8 @@ public:
 
     /* Use a greedy strategy to generate a small set of test patterns. */
     void getGreedyTestSet(vector<vector<int> > &patterns, char *solver_name);
+    void getGreedyTestSet_itr(vector<vector<int> > &patterns, char *solver_name);
+
     bool checkTestSet(vector<vector<int> > patterns);
 
     void getFaultList(vector<string> &faults);
