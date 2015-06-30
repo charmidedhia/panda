@@ -13,8 +13,17 @@
 #include <stdlib.h>
 #include <iostream>
 
-using namespace std;
+#include <sstream>
 
+template <typename T>
+  string NumberToString ( T Number )
+  {
+     ostringstream ss;
+     ss << Number;
+     return ss.str();
+  }
+
+using namespace std;
 void parseIOLine(string strInput, int prefixLen, bool is_input, map<string, int> &extern_to_line, int &num_lines, vector<Line> &lines, vector<int> &input_lines, vector<int> &output_lines) {
     size_t left_bracket = strInput.find_first_of('(');
     size_t right_bracket = strInput.find_first_of(')');
@@ -105,10 +114,35 @@ void parseGate(string strInput, map<string, int> &extern_to_line, int &num_lines
         cerr << "ERROR: unrecognized gate: " << gate << endl;
         exit(1);
     }
-
+    string dummy="dummy";
+    Gate::gate_type buff = Gate::BUFF;
     // Use trimmed_left, inputs_vec and gate
+    vector<string> gateInputs;
+    
+    for(int i=0;i<inputs_vec.size();i++){
+    	vector<string> dummy_inputs;
+    	dummy_inputs.push_back(inputs_vec[i]);
+    	int gate_num = num_gates++;
+    	string dummy_out=dummy+NumberToString(gate_num);
+    	gates.push_back(Gate(gate_num, buff, dummy_inputs, dummy_out));
+    	if(extern_to_line.find(dummy_out)==extern_to_line.end()){
+    		int line_num = num_lines++;
+    		extern_to_line[dummy_out] = line_num;
+    		lines.push_back(Line(line_num, dummy_out, false, false));
+    	}
+    	else(cout<<"ERROR dummy line name already taken");
+    	lines[extern_to_line[dummy_out]].from_gate=gate_num;
+    	gateInputs.push_back(dummy_out);
+    	if (extern_to_line.find(inputs_vec[i]) == extern_to_line.end()) {
+            int line_num = num_lines++;
+            extern_to_line[inputs_vec[i]] = line_num;
+            lines.push_back(Line(line_num, inputs_vec[i], false, false));
+        }
+        lines[extern_to_line[inputs_vec[i]]].to_gates.push_back(gate_num);
+    }
+
     int gate_num = num_gates++;
-    gates.push_back(Gate(gate_num, type, inputs_vec, trimmed_left));
+    gates.push_back(Gate(gate_num, type, gateInputs, trimmed_left));
 
     // Create the mentioned lines if they don't already exist, and update
     // their to and from gates.
@@ -125,13 +159,13 @@ void parseGate(string strInput, map<string, int> &extern_to_line, int &num_lines
     		cout << iter->first << " : " << iter->second << endl;
     	}*/
 
-    for (int i = 0; i < inputs_vec.size(); i++) {
-        if (extern_to_line.find(inputs_vec[i]) == extern_to_line.end()) {
+    for (int i = 0; i < gateInputs.size(); i++) {
+        if (extern_to_line.find(gateInputs[i]) == extern_to_line.end()) {
             int line_num = num_lines++;
-            extern_to_line[inputs_vec[i]] = line_num;
-            lines.push_back(Line(line_num, inputs_vec[i], false, false));
+            extern_to_line[gateInputs[i]] = line_num;
+            lines.push_back(Line(line_num, gateInputs[i], false, false));
         }
-        lines[extern_to_line[inputs_vec[i]]].to_gates.push_back(gate_num);
+        lines[extern_to_line[gateInputs[i]]].to_gates.push_back(gate_num);
     }
 
     delete left_name;

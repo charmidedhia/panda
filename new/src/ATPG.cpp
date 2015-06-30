@@ -33,11 +33,11 @@ void timer_handler (int signum)
     exit(0);
 }
 
-const int k=200;
-const int j=10;
-const int maxhs_time_limit=1000;
+int k=50; //subset size
+int j=10; //size of each partition if incremental
+int maxhs_time_limit=10000;
 
-//charmi
+
 
 ATPG::ATPG(char *benchname, bool incr, bool symm) {
     
@@ -48,7 +48,7 @@ ATPG::ATPG(char *benchname, bool incr, bool symm) {
     
     g_circuit = new Circuit(benchname);
     
-    g_circuit->getRTOPFaultList(g_faultlines);
+    g_circuit->getFaultList(g_faultlines);
     
     g_cnfformula = new CNF(0);
     g_satsolver = new SATSolver(g_cnfformula);
@@ -937,12 +937,7 @@ cout<<"subset size: "<<k<<" step size: "<<j<<endl;
         curfaults.push_back(allfaults[i]);
     }
     
-    // map<string, int> externLineToCnfVar;
-    // for (int i = 0; i < g_circuit->getNumInputLines(); i++) {
-        //     int lineID = g_circuit->getInputLine(i);
-        //     externLineToCnfVar[g_circuit->getLine(lineID).extern_name] = g_testpatternvars[0][i];
-    // }
-    // g_cnfformula->outputToFileMaxsat("whatever", g_soft_clid, externLineToCnfVar, "test_maxsat.cnf");
+    
     
     while (curfaults.size() > 0) {
     	std::ofstream ofs;
@@ -953,13 +948,9 @@ cout<<"subset size: "<<k<<" step size: "<<j<<endl;
         vector<int> patternvars;
         CNF *cnf = new CNF(0);
         set<int> softclauses;
-		///////////////////////////////////////////////from build maxsat
+		
         int numInputs = g_circuit->getNumInputLines();
-		  // int numPatterns = 1; // one pattern initially 
-		  // int numSelectors = numPatterns; // simple multiplexer for now
-		  // vector<vector<int> > testpatternvars;
-		  // vector<vector<int> > selectorvars;
-		  // vector<vector<int> > multioutputvars;
+		  
 		      
 		  for (int i = 0; i < numInputs; i++) { 
 		    patternvars.push_back(cnf->newVar());     
@@ -973,7 +964,7 @@ cout<<"subset size: "<<k<<" step size: "<<j<<endl;
 		  for (int i = 0; i < numInputs; i++) {
 		      line_to_boolvar[g_circuit->getInputLine(i)] = patternvars[i];
 		  }
-        //////////////////////////////////////////////////////////////
+        
         list<Fault>::iterator it=curfaults.begin();
         int count=0;
         vector<int> model;
@@ -993,7 +984,7 @@ cout<<"subset size: "<<k<<" step size: "<<j<<endl;
 
 		      time(&t1);
 			
-		      maxsatsolver->solve(model, softclauses,"cores.txt");
+		      maxsatsolver->solve(model, softclauses,"cores.txt", maxhs_time_limit);
 		      time(&t2);
 		   
 		      cout << "Solving time=" << difftime(t2,t1) << "s" << endl;
@@ -1017,7 +1008,7 @@ cout<<"subset size: "<<k<<" step size: "<<j<<endl;
     	}
     }
 	cout<<"Faults tested in this iteration: "<<cnt<<endl;
-	
+
     cout << "Tested faults: ";
     for (vector<flt_it>::iterator it=tested_faults.begin(); it!=tested_faults.end(); it++){
 	curfaults.erase(*it);
@@ -1064,11 +1055,13 @@ void ATPG::getGreedyTestSet(vector<vector<int> > &patterns, char *solver_name) {
     //     externLineToCnfVar[g_circuit->getLine(lineID).extern_name] = g_testpatternvars[0][i]; 
     // } 
     // g_cnfformula->outputToFileMaxsat("whatever", g_soft_clid, externLineToCnfVar, "test_maxsat.cnf");
-
+    bool indicator=false;
     while (curfaults.size() > 0) {
+    	cout<<"subset size: "<<k<<endl;
 	subset.clear();
       cout << "iteration " << iternum++ << ", remaning faults=" << curfaults.size() 
 	   << ", test patterns=" << patterns.size() << endl;
+	   
 	if (curfaults.size()>k){//charmi
 		list<Fault>::iterator it=curfaults.begin();
 		for(int i=0;i<k;i++){
@@ -1086,9 +1079,7 @@ void ATPG::getGreedyTestSet(vector<vector<int> > &patterns, char *solver_name) {
       MaxSATSolver *maxsatsolver = new MaxSATSolver(cnf, solver_name);      
 
       time(&t1);
-//charmi2
-	 
-//charmi2
+
       maxsatsolver->solve(model, softclauses,maxhs_time_limit);
       time(&t2);
       
@@ -1110,7 +1101,9 @@ void ATPG::getGreedyTestSet(vector<vector<int> > &patterns, char *solver_name) {
     	}
     }
 	cout<<"Faults tested in this iteration: "<<count<<endl;
-	
+	if (count==0 && k==10)maxhs_time_limit*=5;
+	if(count<3)k=10;
+	else if(count<500)k=500;
     cout << "Tested faults: ";
     for (vector<flt_it>::iterator it=tested_faults.begin(); it!=tested_faults.end(); it++){
 	curfaults.erase(*it);
