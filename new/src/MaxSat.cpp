@@ -183,12 +183,14 @@ bool MaxSATSolver::solve(vector<int> &model, set<int>& softclauses, string coref
   string::size_type start = 0;
   string::size_type  end = 0;
   int i=0;
+  char *sigmafile="sigma.txt";
+  ofstream out(sigmafile);
   do {
     start = output.find("\nv ",end);
     if (start != string::npos){
       end = output.find("\n",start+1);
       string vline = output.substr(start+2,end-start-3);
-      
+      out<<vline<<endl;
       string::size_type vdel = 0;
 
       do {
@@ -206,7 +208,7 @@ bool MaxSATSolver::solve(vector<int> &model, set<int>& softclauses, string coref
       } while (vdel != string::npos);
     } 
   } while (start != string::npos);
-
+  out.close();
   if (i == 0){//no optimum found}
     start = output.find("Best Model Found:");
     if (start != string::npos){

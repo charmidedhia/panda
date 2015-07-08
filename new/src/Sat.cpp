@@ -63,7 +63,7 @@ void SATSolver::setPrefixVars(vector<int> &prefix) {
 
 bool SATSolver::solve(vector<int> &model, int budget) {
 
-    cout << "SATSolver::solve enter" << endl;
+    // cout << "SATSolver::solve enter" << endl;
     
     double starttime = cpuTime();
  
@@ -88,7 +88,7 @@ bool SATSolver::solve(vector<int> &model, int budget) {
 }
 bool SATSolver::solve(vector<int> &model) {
 
-    cout << "SATSolver::solve enter" << endl;
+    // cout << "SATSolver::solve enter" << endl;
     
     double starttime = cpuTime();
   
@@ -105,14 +105,14 @@ bool SATSolver::solve(vector<int> &model) {
         }
     } 
 
-    cout << "SAT time: " << cpuTime() - starttime << endl;
+    // cout << "SAT time: " << cpuTime() - starttime << endl;
 
     return satres;
 }
 
 bool SATSolver::solveWithAssumptions(vector<int> &assumps) {
 
-    cout << "SATSolver::solveWithAssumptions enter" << endl;
+    // cout << "SATSolver::solveWithAssumptions enter" << endl;
 
     vec<Lit> massumps;
     for (int i = 0; i < assumps.size(); i++) {
@@ -126,7 +126,7 @@ bool SATSolver::solveWithAssumptions(vector<int> &assumps) {
     double starttime = cpuTime();
 
     bool satres = minisat->solve(massumps);
-    cout << "SAT time: " << cpuTime() - starttime << endl;
+    // cout << "SAT time: " << cpuTime() - starttime << endl;
     return satres;
 }
 

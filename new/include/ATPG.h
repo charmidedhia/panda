@@ -92,6 +92,7 @@ public:
     void getInputLines(set<string> &inlines) { g_circuit->getInputLines(inlines); }
     void getOutputLines(set<string> &outlines) { g_circuit->getOutputLines(outlines); }
     map<string, int> &getExternToLine() { return g_circuit->getExternToLine(); }
+    void getAllFaults(vector<Fault> &allfaults);
 };
 
 #endif

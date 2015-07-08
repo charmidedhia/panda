@@ -77,10 +77,11 @@ void Circuit::getFaultList(vector<string> &faults) {
 			faults.push_back(lines[i].extern_name);
 		}
 	}
-	cout<<"faultlist.size "<<faults.size()<<endl;
+	// cout<<"faultlist.size "<<faults.size()<<endl;
 }
 
 void Circuit::getRTOPFaultList(vector<string> &faults){
+	cout<<"RTOP";
 	vector<bool> inList;
 	for(int i=0;i<lines.size();i++){
 		inList.push_back(false);

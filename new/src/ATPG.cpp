@@ -33,10 +33,10 @@ void timer_handler (int signum)
     exit(0);
 }
 
-int k=50; //subset size
-int j=10; //size of each partition if incremental
-int maxhs_time_limit=10000;
-
+int k=500; //subset size
+int j=20; //size of each partition if incremental
+int maxhs_time_limit=100;
+int threshold=1000;
 
 
 ATPG::ATPG(char *benchname, bool incr, bool symm) {
@@ -48,7 +48,7 @@ ATPG::ATPG(char *benchname, bool incr, bool symm) {
     
     g_circuit = new Circuit(benchname);
     
-    g_circuit->getFaultList(g_faultlines);
+    g_circuit->getRTOPFaultList(g_faultlines);
     
     g_cnfformula = new CNF(0);
     g_satsolver = new SATSolver(g_cnfformula);
@@ -70,7 +70,7 @@ ATPG::~ATPG() {
 }
 
 void ATPG::getFaultList(vector<string> &flts) {
-    g_circuit->getFaultList(flts);
+    g_circuit->getRTOPFaultList(flts);
 }
 
 void ATPG::getMinTestSet(vector<vector<int> > &patterns) {
@@ -908,27 +908,70 @@ bool ATPG::checkTestSet(vector<vector<int> > patterns){
     return true;
 }
 
+void ATPG::getAllFaults(vector<Fault> &allfaults){
+	for(int i=0; i<g_faultlines.size(); i++){
+		if((g_faultlines[i].find("dummy")) == string::npos ){//not input to any gate
+			Fault f0(g_faultlines[i], 0);
+	        if (isFaultTestable(f0)) {
+	            allfaults.push_back(f0);
+	        }
+	        Fault f1(g_faultlines[i], 1);
+	        if (isFaultTestable(f1)) {
+	            allfaults.push_back(f1);
+	        }
+		}
+		else{//find what gate it is input to
+			if(g_circuit->getGate(g_circuit->getLine(g_circuit->getLineID(g_faultlines[i])).to_gates[0]).type == Gate::AND){//and
+				Fault f(g_faultlines[i],1);
+				if (isFaultTestable(f)) {
+		            allfaults.push_back(f);
+		        }
+			}
+			else if(g_circuit->getGate(g_circuit->getLine(g_circuit->getLineID(g_faultlines[i])).to_gates[0]).type == Gate::OR){
+				Fault f(g_faultlines[i],0);
+				if (isFaultTestable(f)) {
+		            allfaults.push_back(f);
+		        }
+			}
+			else if(g_circuit->getGate(g_circuit->getLine(g_circuit->getLineID(g_faultlines[i])).to_gates[0]).type == Gate::NAND){
+				Fault f(g_faultlines[i],0);
+				if (isFaultTestable(f)) {
+		            allfaults.push_back(f);
+		        }
+			}
+			else if(g_circuit->getGate(g_circuit->getLine(g_circuit->getLineID(g_faultlines[i])).to_gates[0]).type == Gate::NOR){
+				Fault f(g_faultlines[i],1);
+				if (isFaultTestable(f)) {
+		            allfaults.push_back(f);
+		        }
+			}
+				
+		}
+	}
+}
+
 
 void ATPG::getGreedyTestSet_itr(vector<vector<int> > &patterns, char *solver_name) {
-
+cout<<"maxhs_time_limit "<<maxhs_time_limit<<" threshold  "<<threshold<<endl;
 double total_maxsat_time=0;
-cout<<"subset size: "<<k<<" step size: "<<j<<endl;
     int iternum = 1;
     
     time_t t1,t2;
     vector<Fault> allfaults;
     list<Fault> curfaults;
     list<Fault> subset; //charmi
-    for (int i = 0; i < g_faultlines.size(); i++) {
-        Fault f0(g_faultlines[i], 0);
-        if (isFaultTestable(f0)) {
-            allfaults.push_back(f0);
-        }
-        Fault f1(g_faultlines[i], 1);
-        if (isFaultTestable(f1)) {
-            allfaults.push_back(f1);
-        }
-    }
+    // for (int i = 0; i < g_faultlines.size(); i++) {
+    //     Fault f0(g_faultlines[i], 0);
+    //     if (isFaultTestable(f0)) {
+    //         allfaults.push_back(f0);
+    //     }
+    //     Fault f1(g_faultlines[i], 1);
+    //     if (isFaultTestable(f1)) {
+    //         allfaults.push_back(f1);
+    //     }
+    // }
+        getAllFaults(allfaults);
+
     
     cout << "Number of testable faults: " << allfaults.size() << endl;
     fflush(stdout);
@@ -940,6 +983,8 @@ cout<<"subset size: "<<k<<" step size: "<<j<<endl;
     
     
     while (curfaults.size() > 0) {
+        cout<<"subset size: "<<k<<" step size: "<<j<<endl;
+
     	std::ofstream ofs;
         ofs.open("cores.txt", std::ofstream::out | std::ofstream::trunc);
         ofs.close();
@@ -968,6 +1013,8 @@ cout<<"subset size: "<<k<<" step size: "<<j<<endl;
         list<Fault>::iterator it=curfaults.begin();
         int count=0;
         vector<int> model;
+        time_t t3;
+        time(&t3);
         while(count<k && it!=curfaults.end()){
         	model.clear();
         	//cout<<"in loop 1\n";
@@ -989,6 +1036,8 @@ cout<<"subset size: "<<k<<" step size: "<<j<<endl;
 		   
 		      cout << "Solving time=" << difftime(t2,t1) << "s" << endl;
 		      total_maxsat_time+=difftime(t2,t1);
+              if(difftime(t2,t1)>maxhs_time_limit)break;
+              if (difftime(t2,t3)>threshold)break;
         }
 
 
@@ -1026,22 +1075,25 @@ cout<<"subset size: "<<k<<" step size: "<<j<<endl;
 
 void ATPG::getGreedyTestSet(vector<vector<int> > &patterns, char *solver_name) {
     int iternum = 1;
+    double total_maxsat_time=0;
 
     time_t t1,t2;
     vector<Fault> allfaults;
     list<Fault> curfaults;
 	list<Fault> subset; //charmi
-    for (int i = 0; i < g_faultlines.size(); i++) {
-      Fault f0(g_faultlines[i], 0);
-      if (isFaultTestable(f0)) {
-          allfaults.push_back(f0);
-      }
-      Fault f1(g_faultlines[i], 1);
-      if (isFaultTestable(f1)) {
-          allfaults.push_back(f1);
-      }
-    }
+  //   for (int i = 0; i < g_faultlines.size(); i++) {
+  //   	if(g_faultlines)
+		// Fault f0(g_faultlines[i], 0);
+		// if (isFaultTestable(f0)) {
+		//   allfaults.push_back(f0);
+		// }
+		// Fault f1(g_faultlines[i], 1);
+		// if (isFaultTestable(f1)) {
+		//   allfaults.push_back(f1);
+		// }
+  //   }
    
+    getAllFaults(allfaults);
     cout << "Number of testable faults: " << allfaults.size() << endl; 
     fflush(stdout);
 
@@ -1084,7 +1136,7 @@ void ATPG::getGreedyTestSet(vector<vector<int> > &patterns, char *solver_name) {
       time(&t2);
       
       cout << "Solving time=" << difftime(t2,t1) << "s" << endl;
-
+      total_maxsat_time+=difftime(t2,t1);
       vector<vector<int> > testpatternvars;
       testpatternvars.push_back(patternvars);
       modelToPatterns(testpatternvars, model, patterns);
@@ -1112,5 +1164,7 @@ void ATPG::getGreedyTestSet(vector<vector<int> > &patterns, char *solver_name) {
       cout << endl;
       
     }
+        cout<<"total_maxsat_time = "<<total_maxsat_time<<endl;
+
 }
 
